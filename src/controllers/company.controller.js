@@ -1,0 +1,107 @@
+const Company = require('../models/Company');
+const Parcel = require('../models/Parcel');
+
+// GET /api/company/:id
+const getCompany = async (req, res) => {
+  try {
+    const company = await Company.findById(req.params.id).select('-password');
+    if (!company) return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan' });
+    res.json({
+      id: company._id, name: company.name, email: company.email,
+      entity: company.companyType, bizType: company.companyType,
+      location: company.location, siteAddress: company.siteAddress,
+      walletId: company.walletId, esgScore: company.esgScore,
+      esgStatus: company.esgStatus, isoCertVerified: company.isoCertVerified,
+      stockData: company.stockData, totalTransactions: company.totalTransactions,
+      createdAt: company.createdAt,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PUT /api/company/:id
+const updateCompany = async (req, res) => {
+  try {
+    const { name, entity, bizType, location, siteAddress, emissionObject, stockData } = req.body;
+
+    // Protect walletId if already generated
+    const company = await Company.findById(req.params.id);
+    if (!company) return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan' });
+
+    // Only owner or admin can update
+    if (req.userRole !== 'admin' && req.userId !== req.params.id) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak' });
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (entity || bizType) updateData.companyType = entity || bizType;
+    if (location) updateData.location = location;
+    if (siteAddress) updateData.siteAddress = siteAddress;
+    if (emissionObject) updateData.emissionObject = emissionObject;
+    if (stockData && !company.walletGenerated) updateData.stockData = stockData;
+
+    const updated = await Company.findByIdAndUpdate(req.params.id, updateData, { new: true }).select('-password');
+    res.json({ success: true, ...updated.toObject() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PUT /api/company/:id/stock
+const updateStock = async (req, res) => {
+  try {
+    const { symbol, price, prevPrice } = req.body;
+    if (!symbol || price === undefined) {
+      return res.status(400).json({ success: false, message: 'symbol dan price wajib diisi' });
+    }
+    const updated = await Company.findByIdAndUpdate(
+      req.params.id,
+      { stockData: { symbol, price, prevPrice, updatedAt: new Date() } },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan' });
+    res.json({ success: true, ...updated.stockData.toObject() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/company/:id/upload-iso
+const uploadIso = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'File ISO wajib diupload' });
+    const filePath = req.file.path;
+    await Company.findByIdAndUpdate(req.params.id, {
+      isoCertPath: filePath,
+      isoCertVerified: false,
+    });
+    res.json({
+      success: true,
+      filePath,
+      isoCertVerified: false,
+      message: 'Menunggu verifikasi admin',
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/company/:id/upload-ownership
+const uploadOwnership = async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'File kepemilikan wajib diupload' });
+    const { equityPct, country, docType } = req.body;
+    const filePath = req.file.path;
+    await Company.findByIdAndUpdate(req.params.id, {
+      ownershipCertPath: filePath,
+      equityPct: equityPct ? Number(equityPct) : undefined,
+    });
+    res.json({ success: true, filePath, equityPct: Number(equityPct) || null });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getCompany, updateCompany, updateStock, uploadIso, uploadOwnership };

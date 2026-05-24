@@ -65,3 +65,4 @@ Connect ke `ws://localhost:3000`
 | Emission calc | 30 req / menit |
 | IoT push | 60 req / menit |
 | General | 100 req / menit |
+"# CarbonTrust-BE" 

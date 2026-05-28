@@ -50,6 +50,14 @@ app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() 
 // 404 handler
 app.use((req, res) => res.status(404).json({ success: false, message: 'Endpoint tidak ditemukan' }));
 
+// Tambahkan route ini agar saat URL utama dibuka, ia merespons dengan benar
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Welcome to CarbonTrust Backend API is running smoothly!"
+  });
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);

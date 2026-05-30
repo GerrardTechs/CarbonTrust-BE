@@ -4,6 +4,7 @@ const { authenticate } = require('../middleware/auth');
 const { uploadLimiter } = require('../middleware/rateLimit');
 const upload = require('../middleware/upload');
 
+router.post('/:id/wallet', authenticate, ctrl.ensureWallet);
 router.get('/:id', authenticate, ctrl.getCompany);
 router.put('/:id', authenticate, ctrl.updateCompany);
 router.put('/:id/stock', authenticate, ctrl.updateStock);

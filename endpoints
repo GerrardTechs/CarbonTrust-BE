@@ -1,0 +1,482 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CarbonTrust API Docs</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: monospace; font-size: 13px; background: #0f1117; color: #e2e8f0; }
+  h1 { padding: 18px 20px 6px; font-size: 18px; color: #4ade80; }
+  .sub { padding: 0 20px 14px; color: #64748b; font-size: 12px; }
+  .nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 20px 16px; }
+  .nav a { color: #94a3b8; text-decoration: none; font-size: 11px; padding: 3px 8px; border: 1px solid #1e293b; border-radius: 3px; }
+  .nav a:hover { color: #4ade80; border-color: #4ade80; }
+  .section { margin: 0 20px 22px; }
+  .section h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #1e293b; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1e293b; color: #94a3b8; font-size: 11px; text-align: left; padding: 6px 8px; font-weight: normal; }
+  tr:nth-child(even) td { background: #0d1117; }
+  td { padding: 7px 8px; border-bottom: 1px solid #1a2030; vertical-align: top; font-size: 12px; }
+  .m { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; min-width: 44px; text-align: center; }
+  .GET  { background: #0c4a6e; color: #7dd3fc; }
+  .POST { background: #14532d; color: #86efac; }
+  .PUT  { background: #713f12; color: #fde68a; }
+  .PATCH{ background: #4c1d95; color: #c4b5fd; }
+  .DEL  { background: #7f1d1d; color: #fca5a5; }
+  .auth { display: inline-block; padding: 1px 5px; border-radius: 2px; font-size: 10px; }
+  .public  { background: #1e293b; color: #64748b; }
+  .company { background: #0c4a6e33; color: #7dd3fc; }
+  .landlord{ background: #14532d33; color: #86efac; }
+  .admin   { background: #7f1d1d33; color: #fca5a5; }
+  .any     { background: #4c1d9533; color: #c4b5fd; }
+  .ok  { color: #4ade80; }
+  .no  { color: #f87171; }
+  .ep { color: #cbd5e1; }
+  .desc { color: #94a3b8; }
+  code { background: #1e293b; padding: 1px 4px; border-radius: 2px; color: #fbbf24; font-size: 11px; }
+  .rl { font-size: 10px; color: #f59e0b; }
+  .note { font-size: 10px; color: #475569; }
+</style>
+</head>
+<body>
+
+<h1>🌿 CarbonTrust API</h1>
+<p class="sub">Base URL: <code>http://localhost:3000/api</code> &nbsp;|&nbsp; Header Auth: <code>Authorization: Bearer {token}</code> &nbsp;|&nbsp; WS: <code>ws://localhost:3000</code></p>
+
+<div class="nav">
+  <a href="#auth">Auth</a>
+  <a href="#company">Company</a>
+  <a href="#parcel">Parcels</a>
+  <a href="#emission">Emisi</a>
+  <a href="#bids">Bidding</a>
+  <a href="#iot">IoT</a>
+  <a href="#admin">Admin</a>
+  <a href="#public">Public</a>
+  <a href="#cert">Sertifikat</a>
+  <a href="#landlord">Landlord</a>
+  <a href="#ws">WebSocket</a>
+</div>
+
+<!-- AUTH -->
+<div class="section" id="auth">
+<h2>🔐 Auth &amp; Session</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/auth/register-company</td>
+  <td><span class="auth public">public</span></td>
+  <td><code>name, email, username, password, companyType, position, officeAddress, siteAddress, emissionObject, institutionId?</code></td>
+  <td class="desc"><code>{success, token, user{id,name,email,role,walletId,companyId}}</code><br><span class="note">409 email/username duplikat | rate limit 10/15min</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/auth/login</td>
+  <td><span class="auth public">public</span></td>
+  <td><code>email? | username?, password</code></td>
+  <td class="desc"><code>{success, token, user{id,name,role,email,walletId,esgScore}}</code><br><span class="note">404 akun tidak ada | 401 password salah | rate limit 10/15min</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/auth/logout</td>
+  <td><span class="auth any">any</span></td>
+  <td><span class="note">— (token dari header)</span></td>
+  <td class="desc"><code>{success: true}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/auth/register-landlord</td>
+  <td><span class="auth public">public</span></td>
+  <td><code>name, email, username, password, phone?, location?</code></td>
+  <td class="desc"><code>{success, token, user{id,name,role:"landlord",walletId}}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/auth/admin-login</td>
+  <td><span class="auth public">public</span></td>
+  <td><code>username, password</code></td>
+  <td class="desc"><code>{success, token, user{id,name,role:"admin"}}</code><br><span class="note">401 kredensial salah | rate limit 10/15min</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/auth/me</td>
+  <td><span class="auth any">any</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{success, user{id,name,email,role,esgScore,...}}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- COMPANY -->
+<div class="section" id="company">
+<h2>🏢 Company</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/company/:id</td>
+  <td><span class="auth any">any*</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{id,name,email,entity,bizType,location,siteAddress,walletId,esgScore,esgStatus,isoCertVerified,stockData,totalTransactions,createdAt}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PUT">PUT</span></td>
+  <td class="ep">/company/:id</td>
+  <td><span class="auth company">company/landlord</span></td>
+  <td><code>name?, entity?, bizType?, location?, siteAddress?, emissionObject?, stockData?</code><br><span class="note">walletId tidak bisa diubah</span></td>
+  <td class="desc"><code>{success, ...updatedCompany}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PUT">PUT</span></td>
+  <td class="ep">/company/:id/stock</td>
+  <td><span class="auth company">company</span></td>
+  <td><code>symbol, price, prevPrice</code></td>
+  <td class="desc"><code>{success, symbol, price, prevPrice, updatedAt}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/company/:id/upload-iso</td>
+  <td><span class="auth company">company</span></td>
+  <td><code>multipart: isoCert (PDF/JPG/PNG, max 10MB)</code></td>
+  <td class="desc"><code>{success, filePath, isoCertVerified:false, message:"Menunggu verifikasi admin"}</code><br><span class="rl">⏱ 20 upload/jam</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/company/:id/upload-ownership</td>
+  <td><span class="auth company">company</span></td>
+  <td><code>multipart: ownershipDoc (PDF/JPG/PNG) + equityPct, country?, docType?</code></td>
+  <td class="desc"><code>{success, filePath, equityPct}</code><br><span class="rl">⏱ 20 upload/jam</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- PARCELS -->
+<div class="section" id="parcel">
+<h2>🌱 Parcels (Lahan)</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body / Query</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/parcels?companyId=</td>
+  <td><span class="auth any">any*</span></td>
+  <td><code>query: companyId (wajib)</code></td>
+  <td class="desc"><code>[{id,companyId,name,type,area,status,ndvi,lat,lng,depth,humidity,locType,lastSat,absorptionMonthly}]</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/parcels</td>
+  <td><span class="auth company">company/landlord</span></td>
+  <td><code>companyId, name, type, area, lat, lng, depth? (wajib jika peatland), humidity?, locType ("site"|"office")</code></td>
+  <td class="desc"><code>{id,companyId,name,type,area,status,ndvi,lat,lng,depth,humidity,locType,lastSat}</code><br><span class="note">+ auto-init 216 data point IoT simulasi</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PATCH">PATCH</span></td>
+  <td class="ep">/parcels/:id/status</td>
+  <td><span class="auth company">company/landlord</span></td>
+  <td><code>status: "healthy"|"flooded"|"degraded"|"burned"|"drying"</code></td>
+  <td class="desc"><code>{...updatedParcel}</code><br><span class="note">Auto-alert jika bukan healthy | emit WS parcel_updated</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PATCH">PATCH</span></td>
+  <td class="ep">/parcels/:id/humidity</td>
+  <td><span class="auth company">company/landlord</span></td>
+  <td><code>humidity: number (0–100)</code></td>
+  <td class="desc"><code>{...updatedParcel, absorptionMonthly}</code><br><span class="note">Peatland &lt;40% → auto critical alert | recalc absorption</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- EMISSION -->
+<div class="section" id="emission">
+<h2>💨 Emisi &amp; Kalkulasi</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/emissions/calculate-v2</td>
+  <td><span class="auth company">company</span></td>
+  <td><code>companyId, method ("operational"|"equity"), equityPct?, inputs{genset,boiler,furnace,lpg,naturalGas,coal,truck,smallTruck,opCar,bus,diesel,petrol,refrigerant,electricity,heatSteam,freightRoad,freightRoadTons,freightShip,freightShipTons,fuelDelivery,bizTravel,commuting,waste}</code></td>
+  <td class="desc"><code>{success, scope1, scope2, scope3, total, leakage, creditsNeeded, breakdown[{key,source,val,unit,ef,emission,scope}]}</code><br><span class="rl">⏱ 30 req/menit</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/emissions/history/:companyId</td>
+  <td><span class="auth company">company</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{success, records[...20 terbaru]}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- BIDS -->
+<div class="section" id="bids">
+<h2>💰 Bidding</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body / Query</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/bids?projectId=&amp;companyId=</td>
+  <td><span class="auth company">company</span></td>
+  <td><code>query: projectId?, companyId?</code></td>
+  <td class="desc"><code>[{id,projectId,buyerCompanyId,buyerName,pricePerTon,volume,status,createdAt}]</code><br><span class="note">Diurutkan pricePerTon DESC</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/bids</td>
+  <td><span class="auth company">company</span></td>
+  <td><code>projectId, buyerCompanyId, buyerName, pricePerTon, volume?</code></td>
+  <td class="desc"><code>{id,projectId,buyerCompanyId,buyerName,pricePerTon,status:"pending",createdAt}</code><br><span class="note">Emit WS new_bid | tidak bisa bid project sendiri</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PATCH">PATCH</span></td>
+  <td class="ep">/bids/:id/accept</td>
+  <td><span class="auth company">company</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{...updatedBid, status:"accepted"}</code><br><span class="note">Bid lain di project yang sama → rejected | emit WS bid_accepted</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PATCH">PATCH</span></td>
+  <td class="ep">/bids/:id/reject</td>
+  <td><span class="auth company">company</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{...updatedBid, status:"rejected"}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- IOT -->
+<div class="section" id="iot">
+<h2>📡 IoT &amp; Sensor</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body / Query</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/iot/:parcelId/history?hours=72</td>
+  <td><span class="auth any">any*</span></td>
+  <td><code>query: hours (default 72)</code></td>
+  <td class="desc"><code>[{ts,temp,hum,co2,ndvi}]</code><br><span class="note">Difilter N jam terakhir</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/iot/company/:companyId?scope=</td>
+  <td><span class="auth company">company</span></td>
+  <td><code>query: scope ("office"|"site"|"all")</code></td>
+  <td class="desc"><code>{office:[{parcelId,name,latest{ts,temp,hum,co2,ndvi}}], site:[...]}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m POST">POST</span></td>
+  <td class="ep">/iot/:parcelId/push</td>
+  <td><span class="auth public">device*</span></td>
+  <td><code>temp, hum, co2, ndvi, ts?</code></td>
+  <td class="desc"><code>{success, parcelId, data{ts,temp,hum,co2,ndvi}}</code><br><span class="note">Auto-alert: peatland hum&lt;40% | CO2&gt;1000ppm | emit WS iot_live</span><br><span class="rl">⏱ 60 req/menit (IoT device)</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- ADMIN -->
+<div class="section" id="admin">
+<h2>⚙️ Admin</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/admin/overview</td>
+  <td><span class="auth admin">admin</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{totalCompanies,totalParcels,totalBids,totalAbsorption,totalEmission,totalCredits,verifiedCount,alertsCount,recentAlerts[10],companies[{id,name,email,esgScore,isoCertVerified,parcelsCount,totalArea,totalAbsorption,totalEmission,netCredits}]}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/admin/companies</td>
+  <td><span class="auth admin">admin</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{success, companies[...]}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PATCH">PATCH</span></td>
+  <td class="ep">/admin/company/:id/verify-iso</td>
+  <td><span class="auth admin">admin</span></td>
+  <td><code>approved: true|false, note?</code></td>
+  <td class="desc"><code>{companyId, isoCertVerified, note, updatedAt}</code><br><span class="note">Jika approved: company bisa publish kredit</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m PATCH">PATCH</span></td>
+  <td class="ep">/admin/company/:id/esg</td>
+  <td><span class="auth admin">admin</span></td>
+  <td><code>esgScore, esgStatus</code></td>
+  <td class="desc"><code>{success, companyId, esgScore, esgStatus}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- PUBLIC -->
+<div class="section" id="public">
+<h2>🌐 Public (Tanpa Auth)</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/public/projects</td>
+  <td><span class="auth public">public</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>[{id,name,company,country,flag,type,price,available,rating,ndvi,absRate,verified,companyESG,isoVerified,totalParcels,totalAbsorption}]</code><br><span class="note">Tidak expose: email, walletId, password</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/public/company/:id</td>
+  <td><span class="auth public">public</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{id,name,entity,bizType,esgScore,isoCertVerified,totalAbsorption,totalEmission,netMonthly,netAnnual,netCredits,parcels[{id,name,type,area,status,ndvi,absorptionMonthly}]}</code><br><span class="note">Tanpa lat/lng detail, tanpa email/walletId</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- CERTIFICATE -->
+<div class="section" id="cert">
+<h2>📜 Sertifikat</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/certificate/:companyId</td>
+  <td><span class="auth company">company/landlord</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{certNumber:"CT-CERT-{id}-{year}", companyId, companyName, issuedAt, validUntil, totalAbsorption, totalEmission, netMonthly, netAnnual, netCredits, standard:"ISO 14064:2018", verified:true, parcels[...]}</code><br><span class="note">403 jika isoCertVerified = false</span></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- LANDLORD -->
+<div class="section" id="landlord">
+<h2>🏘️ Landlord</h2>
+<table>
+<tr><th width="55">Method</th><th width="240">Endpoint</th><th width="70">Auth</th><th width="200">Request Body</th><th>Response 200</th><th width="90">Status</th></tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/landlord/:id/parcels</td>
+  <td><span class="auth landlord">landlord</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>[{id,name,type,area,status,ndvi,lat,lng,depth,humidity,absorptionMonthly}]</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+
+<tr>
+  <td><span class="m GET">GET</span></td>
+  <td class="ep">/landlord/:id/summary</td>
+  <td><span class="auth landlord">landlord</span></td>
+  <td><span class="note">—</span></td>
+  <td class="desc"><code>{totalParcels, totalArea, totalAbsorption, totalEmission, netMonthly, netAnnual, netCredits}</code></td>
+  <td class="ok">✅ Ada</td>
+</tr>
+</table>
+</div>
+
+<!-- WEBSOCKET -->
+<div class="section" id="ws">
+<h2>🔌 WebSocket Events</h2>
+<table>
+<tr><th width="160">Event</th><th>Payload</th><th>Trigger</th></tr>
+<tr><td><code>parcel_updated</code></td><td><code>{parcelId, status, ndvi}</code></td><td>PATCH /parcels/:id/status</td></tr>
+<tr><td><code>new_bid</code></td><td><code>{bidId, projectId, buyerName, pricePerTon, sellerId}</code></td><td>POST /bids</td></tr>
+<tr><td><code>bid_accepted</code></td><td><code>{bidId, projectId, buyerCompanyId}</code></td><td>PATCH /bids/:id/accept</td></tr>
+<tr><td><code>iot_live</code></td><td><code>{parcelId, data{ts,temp,hum,co2,ndvi}}</code></td><td>POST /iot/:parcelId/push</td></tr>
+<tr><td><code>connected</code></td><td><code>{event, message}</code></td><td>On WS connect</td></tr>
+</table>
+</div>
+
+<!-- ROLES -->
+<div class="section">
+<h2>👥 Roles &amp; Akses</h2>
+<table>
+<tr><th width="90">Role</th><th>Registrasi</th><th>Akses</th></tr>
+<tr><td><span class="auth company">company</span></td><td>POST /auth/register-company</td><td>Company CRUD, Parcels, Emissions, Bids, Certificates, IoT</td></tr>
+<tr><td><span class="auth landlord">landlord</span></td><td>POST /auth/register-landlord</td><td>Landlord parcels &amp; summary, Parcel CRUD terbatas</td></tr>
+<tr><td><span class="auth admin">admin</span></td><td>POST /auth/admin-login (hardcoded)</td><td>Full overview, verify ISO, update ESG</td></tr>
+<tr><td><span class="auth public">public</span></td><td>—</td><td>GET /public/projects, GET /public/company/:id (baca saja)</td></tr>
+</table>
+</div>
+
+<!-- RATE LIMITS -->
+<div class="section">
+<h2>⏱ Rate Limits</h2>
+<table>
+<tr><th width="200">Endpoint Group</th><th>Limit</th></tr>
+<tr><td>Auth (login, register)</td><td>10 request / 15 menit</td></tr>
+<tr><td>File upload (ISO, ownership)</td><td>20 request / jam</td></tr>
+<tr><td>Emission calculate</td><td>30 request / menit</td></tr>
+<tr><td>IoT push (device)</td><td>60 request / menit</td></tr>
+<tr><td>General (bids, parcels, public)</td><td>100 request / menit</td></tr>
+</table>
+</div>
+
+<div class="section">
+<p class="note" style="padding:8px 0">* Auth required (Bearer token) | any* = token dibutuhkan tapi role tidak dibatasi | device* = no auth, rate limited by IP</p>
+</div>
+
+</body>
+</html>

@@ -7,13 +7,6 @@ const getCertificate = async (req, res) => {
     const company = await Company.findById(req.params.companyId).select('-password');
     if (!company) return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan' });
 
-    if (!company.isoCertVerified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Sertifikat tidak tersedia. ISO belum diverifikasi oleh admin.',
-      });
-    }
-
     const parcels = await Parcel.find({ companyId: company._id });
     const totalAbsorption = parcels.reduce((s, p) => s + (p.absorptionMonthly || 0), 0);
     const totalEmission = 0; // could pull from latest EmissionRecord
@@ -39,7 +32,11 @@ const getCertificate = async (req, res) => {
       netAnnual: parseFloat(netAnnual.toFixed(3)),
       netCredits,
       standard: 'ISO 14064:2018',
-      verified: true,
+      verified: !!company.isoCertVerified,
+      preview: !company.isoCertVerified,
+      isoPendingMessage: company.isoCertVerified
+        ? null
+        : 'Pratinjau — sertifikat resmi setelah admin memverifikasi ISO 14064',
       parcels: parcels.map(p => ({
         id: p._id, name: p.name, type: p.type,
         area: p.area, absorption: p.absorptionMonthly,

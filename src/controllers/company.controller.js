@@ -1,5 +1,6 @@
 const Company = require('../models/Company');
 const Parcel = require('../models/Parcel');
+const { generateWalletId } = require('../utils/tokens');
 
 // GET /api/company/:id
 const getCompany = async (req, res) => {
@@ -10,7 +11,9 @@ const getCompany = async (req, res) => {
       id: company._id, name: company.name, email: company.email,
       entity: company.companyType, bizType: company.companyType,
       location: company.location, siteAddress: company.siteAddress,
-      walletId: company.walletId, esgScore: company.esgScore,
+      walletId: company.walletId,
+      walletGenerated: !!(company.walletId && company.walletGenerated !== false),
+      esgScore: company.esgScore,
       esgStatus: company.esgStatus, isoCertVerified: company.isoCertVerified,
       stockData: company.stockData, totalTransactions: company.totalTransactions,
       createdAt: company.createdAt,
@@ -104,4 +107,34 @@ const uploadOwnership = async (req, res) => {
   }
 };
 
-module.exports = { getCompany, updateCompany, updateStock, uploadIso, uploadOwnership };
+// POST /api/company/:id/wallet — generate sekali, tidak bisa diubah
+const ensureWallet = async (req, res) => {
+  try {
+    if (req.userRole !== 'admin' && req.userId !== req.params.id) {
+      return res.status(403).json({ success: false, message: 'Akses ditolak' });
+    }
+
+    const company = await Company.findById(req.params.id);
+    if (!company) return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan' });
+
+    if (company.walletId) {
+      return res.json({
+        success: true,
+        walletId: company.walletId,
+        walletGenerated: true,
+        message: 'Wallet ID sudah ada dan tidak dapat diubah',
+      });
+    }
+
+    const walletId = generateWalletId();
+    company.walletId = walletId;
+    company.walletGenerated = true;
+    await company.save();
+
+    res.json({ success: true, walletId, walletGenerated: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { getCompany, updateCompany, updateStock, uploadIso, uploadOwnership, ensureWallet };

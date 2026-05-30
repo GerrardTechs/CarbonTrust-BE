@@ -17,7 +17,7 @@ async function sendVerificationEmail({ to, name, token, role }) {
     'Klik tautan berikut untuk memverifikasi email Anda:',
     verifyUrl,
     '',
-    `Atau masukkan kode verifikasi ini di aplikasi: ${token.slice(0, 12).toUpperCase()}`,
+    `Atau masukkan kode verifikasi ini di aplikasi: ${token}`,
     '',
     'Tautan berlaku 24 jam.',
     '',
@@ -42,7 +42,7 @@ async function sendVerificationEmail({ to, name, token, role }) {
         html: `<p>Halo <strong>${name || 'Pengguna'}</strong>,</p>
           <p>Verifikasi email Anda untuk melanjutkan pendaftaran CarbonTrust:</p>
           <p><a href="${verifyUrl}">${verifyUrl}</a></p>
-          <p>Kode: <code>${token.slice(0, 12).toUpperCase()}</code></p>`,
+          <p>Kode: <code>${token}</code></p>`,
       });
       return { sent: true, verifyUrl };
     } catch (err) {

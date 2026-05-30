@@ -60,7 +60,8 @@ Connect ke `ws://localhost:3000`
 ## Rate Limits
 | Endpoint | Limit |
 |----------|-------|
-| Auth endpoints | 10 req / 15 menit |
+| Auth endpoints (login, register, dll.) | 20 req / 15 menit |
+| Check username | 60 req / menit |
 | Upload endpoints | 20 req / jam |
 | Emission calc | 30 req / menit |
 | IoT push | 60 req / menit |

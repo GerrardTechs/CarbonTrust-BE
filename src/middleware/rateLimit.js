@@ -2,8 +2,17 @@ const rateLimit = require('express-rate-limit');
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 20,
   message: { success: false, message: 'Terlalu banyak percobaan login. Coba lagi setelah 15 menit.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Username availability is checked often while typing — keep separate from login/register limits
+const usernameCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { success: false, message: 'Terlalu banyak pengecekan username. Tunggu sebentar.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -32,4 +41,11 @@ const iotPushLimiter = rateLimit({
   message: { success: false, message: 'IoT push rate limit. Tunggu sebentar.' },
 });
 
-module.exports = { authLimiter, uploadLimiter, emissionLimiter, generalLimiter, iotPushLimiter };
+module.exports = {
+  authLimiter,
+  usernameCheckLimiter,
+  uploadLimiter,
+  emissionLimiter,
+  generalLimiter,
+  iotPushLimiter,
+};

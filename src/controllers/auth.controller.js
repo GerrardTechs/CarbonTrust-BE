@@ -173,7 +173,7 @@ const registerCompany = async (req, res) => {
 // POST /api/auth/login
 const login = async (req, res) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, username, password, role } = req.body;
     if (!password || (!email && !username)) {
       return res.status(400).json({ success: false, message: 'Email/username dan password wajib diisi' });
     }
@@ -181,6 +181,15 @@ const login = async (req, res) => {
     const query = email ? { email: email.toLowerCase() } : { username: username.toLowerCase() };
     const company = await Company.findOne(query);
     if (!company) return res.status(404).json({ success: false, message: 'Akun tidak ditemukan' });
+
+    if (role && company.role !== role) {
+      return res.status(403).json({
+        success: false,
+        message: role === 'company'
+          ? 'Akun ini bukan akun perusahaan'
+          : 'Akun ini bukan akun pemilik lahan',
+      });
+    }
 
     const valid = await bcrypt.compare(password, company.password);
     if (!valid) return res.status(401).json({ success: false, message: 'Password salah' });
@@ -192,8 +201,10 @@ const login = async (req, res) => {
       success: true, token: sessionToken,
       user: {
         id: company._id, name: company.name, email: company.email,
+        username: company.username,
         role: company.role, walletId: company.walletId,
         walletGenerated: !!company.walletId, esgScore: company.esgScore,
+        companyId: company.companyId,
       },
     });
   } catch (err) {

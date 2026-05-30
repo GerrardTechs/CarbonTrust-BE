@@ -20,6 +20,9 @@ const landlordRoutes = require('./routes/landlord.routes');
 const app = express();
 const server = http.createServer(app);
 
+// Required on Render/reverse proxies so rate limits use the real client IP
+app.set('trust proxy', 1);
+
 // WebSocket setup
 setupWebSocket(server);
 

@@ -1,6 +1,7 @@
 const Company = require('../models/Company');
 const Parcel = require('../models/Parcel');
 const Bid = require('../models/Bid');
+const EmissionRecord = require('../models/EmissionRecord');
 
 // GET /api/admin/overview
 const getOverview = async (req, res) => {
@@ -26,6 +27,12 @@ const getOverview = async (req, res) => {
         });
       });
 
+      // Ambil emisi terbaru dari EmissionRecord (hasil CalcPage user)
+      const emRec = await EmissionRecord.findOne({ companyId: co._id }).sort({ createdAt: -1 });
+      // total di EmissionRecord = kg CO₂e/tahun → konversi ke t/bulan untuk konsistensi
+      const emMonthly = emRec?.total ? parseFloat((emRec.total / 1000 / 12).toFixed(3)) : 0;
+      totalEmission += emMonthly;
+
       return {
         id: co._id, name: co.name, email: co.email,
         esgScore: co.esgScore, isoCertVerified: co.isoCertVerified,
@@ -33,8 +40,10 @@ const getOverview = async (req, res) => {
         parcelsCount: parcels.length,
         totalArea: parcels.reduce((s, p) => s + (p.area || 0), 0),
         totalAbsorption: parseFloat(absorption.toFixed(3)),
-        totalEmission: 0, // would come from EmissionRecord
-        netCredits: Math.floor(annualAbsorption),
+        totalEmission: emMonthly,
+        netCredits: Math.max(0, Math.floor((annualAbsorption) - (emMonthly * 12))),
+        lastEmissionUpdate: emRec?.createdAt || null,
+        emissionScope: emRec ? { s1: emRec.scope1, s2: emRec.scope2, s3: emRec.scope3 } : null,
       };
     }));
 

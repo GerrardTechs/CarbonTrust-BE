@@ -9,15 +9,18 @@ const VERIFICATION_HOURS = 24;
 
 async function assertRegistrationAvailable({ email, username }) {
   const emailNorm = email.toLowerCase();
-  const userNorm = username.toLowerCase();
+  const userNorm  = username.toLowerCase();
 
   if (isReservedUsername(userNorm)) {
     return { ok: false, status: 400, message: 'Username ini tidak dapat digunakan (nama sistem/admin)' };
   }
 
+  // Cek hanya di Company (akun final), BUKAN di EmailVerification
   const existing = await Company.findOne({ $or: [{ email: emailNorm }, { username: userNorm }] });
   if (existing) {
-    const message = existing.email === emailNorm ? 'Email sudah digunakan' : 'Username sudah digunakan';
+    const message = existing.email === emailNorm
+      ? 'Email sudah digunakan'
+      : 'Username sudah digunakan';
     return { ok: false, status: 409, message };
   }
   return { ok: true };
@@ -69,14 +72,15 @@ const sendVerification = async (req, res) => {
     const token = generateVerificationToken();
     const expiresAt = new Date(Date.now() + VERIFICATION_HOURS * 60 * 60 * 1000);
 
-    await EmailVerification.deleteMany({ email: email.toLowerCase(), verified: false });
+    await EmailVerification.deleteMany({ email: email.toLowerCase() });
+
     await EmailVerification.create({
       email: email.toLowerCase(),
       token,
       role,
       payload: { name, email, username, password, role, phone, location },
       verified: false,
-      expiresAt,
+      expiresAt: new Date(Date.now() + VERIFICATION_HOURS * 60 * 60 * 1000),
     });
 
     const mail = await sendVerificationEmail({ to: email, name, token, role });

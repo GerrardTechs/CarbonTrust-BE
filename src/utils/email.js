@@ -4,18 +4,20 @@ const nodemailer = require('nodemailer');
 // ── Transporter (dibuat sekali, dipakai ulang) ──────────────────────────────
 let _transporter = null;
 function getTransporter() {
-  if (_transporter) return _transporter;
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
-  _transporter = nodemailer.createTransport({
-    host:   process.env.SMTP_HOST,
-    port:   Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === 'true',
+  // Buat fresh setiap call — hindari cache transporter yang sudah timeout
+  return nodemailer.createTransport({
+    host:           process.env.SMTP_HOST,
+    port:           Number(process.env.SMTP_PORT || 587),
+    secure:         process.env.SMTP_SECURE === 'true',
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    connectionTimeout: 10000,   // 10 detik — jangan gantung selamanya
+    socketTimeout:     10000,
+    greetingTimeout:   10000,
   });
-  return _transporter;
 }
 
 function generateVerificationToken() {

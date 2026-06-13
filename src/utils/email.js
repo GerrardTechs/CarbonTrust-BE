@@ -5,7 +5,8 @@ const crypto     = require('crypto');
 const nodemailer = require('nodemailer');
 
 function getTransporter() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;  return nodemailer.createTransport({
+  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
+    return nodemailer.createTransport({
     host:           process.env.SMTP_HOST,
     port:           Number(process.env.SMTP_PORT || 587),
     secure:         process.env.SMTP_SECURE === 'true',

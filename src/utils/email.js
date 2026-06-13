@@ -6,17 +6,25 @@ const nodemailer = require('nodemailer');
 
 function getTransporter() {
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
-    return nodemailer.createTransport({
-    host:           process.env.SMTP_HOST,
-    port:           Number(process.env.SMTP_PORT || 587),
-    secure:         process.env.SMTP_SECURE === 'true',
+  
+  const port = Number(process.env.SMTP_PORT || 587);
+  const isSecure = process.env.SMTP_SECURE === 'true';
+
+  console.log(`[SMTP Debug] Attempting connection to ${process.env.SMTP_HOST}:${port} (Secure: ${isSecure})`);
+
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: port,
+    secure: isSecure,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
-    connectionTimeout: 10000,   // 10 detik — jangan gantung selamanya
+    connectionTimeout: 10000, 
     socketTimeout:     10000,
     greetingTimeout:   10000,
+    // logger: true, // Hapus komentar ini sementara untuk melihat log komunikasi Nodemailer
+    // debug: true,  // Hapus komentar ini sementara untuk melihat traffic secara detail
   });
 }
 

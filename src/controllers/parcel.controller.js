@@ -1,6 +1,4 @@
 const Parcel = require('../models/Parcel');
-const IotHistory = require('../models/IotHistory');
-const { generateIotHistory } = require('../utils/iotSimulator');
 const { broadcast } = require('../utils/websocket');
 
 const NDVI_MAP = {
@@ -38,10 +36,6 @@ const createParcel = async (req, res) => {
       status: 'healthy',
       ndvi: 0.70,
     });
-
-    // Init IoT history with simulated data
-    const simulatedData = generateIotHistory(parcel);
-    await IotHistory.create({ parcelId: parcel._id, data: simulatedData });
 
     res.status(201).json(parcel);
   } catch (err) {

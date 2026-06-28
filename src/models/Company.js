@@ -23,6 +23,11 @@ const companySchema = new mongoose.Schema({
   isoCertPath: { type: String },
   ownershipCertPath: { type: String },
   equityPct: { type: Number },
+  calcMethod: { type: String },
+  ghgInventoryPath: { type: String },
+  carbonRemovalPath: { type: String },
+  contactName: { type: String },
+  emailVerified: { type: Boolean, default: false },
   stockData: {
     symbol: String,
     price: Number,

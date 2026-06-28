@@ -1,5 +1,5 @@
 const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first'); // ← tambah di paling atas file
+dns.setDefaultResultOrder('ipv4first'); 
 
 const crypto     = require('crypto');
 const nodemailer = require('nodemailer');
@@ -23,8 +23,8 @@ function getTransporter() {
     connectionTimeout: 10000, 
     socketTimeout:     10000,
     greetingTimeout:   10000,
-    // logger: true, // Hapus komentar ini sementara untuk melihat log komunikasi Nodemailer
-    // debug: true,  // Hapus komentar ini sementara untuk melihat traffic secara detail
+    logger: true, // Hapus komentar ini sementara untuk melihat log komunikasi Nodemailer
+    debug: true,  // Hapus komentar ini sementara untuk melihat traffic secara detail
   });
 }
 
@@ -36,6 +36,7 @@ async function sendVerificationEmail({ to, name, token, role }) {
   const baseUrl  = process.env.FRONTEND_URL || 'http://localhost:5173';
   const verifyUrl = `${baseUrl}/?verifyToken=${token}&email=${encodeURIComponent(to)}`;
   const roleLabel = role === 'landlord' ? 'Landlord' : 'Company';
+  const shortCode = token.slice(0, 8).toUpperCase();
 
   const html = `
     <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
@@ -53,7 +54,7 @@ async function sendVerificationEmail({ to, name, token, role }) {
       </a>
       <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-bottom:20px;">
         <p style="font-size:12px;color:#166534;margin:0 0 4px;font-weight:700;">Atau masukkan kode ini di aplikasi:</p>
-        <p style="font-family:monospace;font-size:16px;font-weight:900;color:#14532d;margin:0;letter-spacing:.1em;">${token.slice(0,8).toUpperCase()}</p>
+        <p style="font-family:monospace;font-size:16px;font-weight:900;color:#14532d;margin:0;letter-spacing:.1em;">${shortCode}</p>
       </div>
       <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;">
         Tautan & kode berlaku 24 jam. Abaikan email ini jika Anda tidak mendaftar.
@@ -69,7 +70,7 @@ async function sendVerificationEmail({ to, name, token, role }) {
     'Klik tautan berikut untuk memverifikasi email Anda:',
     verifyUrl,
     '',
-    `Atau masukkan kode verifikasi ini di aplikasi: ${token}`,
+    `Atau masukkan kode verifikasi ini di aplikasi: ${shortCode}`,
     '',
     'Tautan berlaku 24 jam.',
     '',

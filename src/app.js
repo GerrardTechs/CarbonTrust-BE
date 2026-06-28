@@ -11,11 +11,11 @@ const companyRoutes = require('./routes/company.routes');
 const parcelRoutes = require('./routes/parcel.routes');
 const emissionRoutes = require('./routes/emission.routes');
 const bidsRoutes = require('./routes/bids.routes');
-const iotRoutes = require('./routes/iot.routes');
 const adminRoutes = require('./routes/admin.routes');
 const publicRoutes = require('./routes/public.routes');
 const certificateRoutes = require('./routes/certificate.routes');
 const landlordRoutes = require('./routes/landlord.routes');
+const sequestrationRoutes = require('./routes/sequestration.routes');
 
 const app = express();
 const server = http.createServer(app);
@@ -41,11 +41,11 @@ app.use('/api/company', companyRoutes);
 app.use('/api/parcels', parcelRoutes);
 app.use('/api/emissions', emissionRoutes);
 app.use('/api/bids', bidsRoutes);
-app.use('/api/iot', iotRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/certificate', certificateRoutes);
 app.use('/api/landlord', landlordRoutes);
+app.use('/api/sequestration', sequestrationRoutes);
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', timestamp: new Date() }));

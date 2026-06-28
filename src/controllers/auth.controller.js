@@ -7,6 +7,34 @@ const { generateVerificationToken, sendVerificationEmail, isReservedUsername } =
 
 const VERIFICATION_HOURS = 24;
 
+function escapeRegex(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeVerificationInput(rawToken) {
+  return String(rawToken || '').trim().toLowerCase();
+}
+
+async function findVerificationRecord(rawToken, email) {
+  const token = normalizeVerificationInput(rawToken);
+  if (!token) return null;
+
+  const baseQuery = { expiresAt: { $gt: new Date() } };
+  if (email) baseQuery.email = String(email).toLowerCase().trim();
+
+  if (token.length >= 32) {
+    return EmailVerification.findOne({ ...baseQuery, token });
+  }
+
+  const candidates = await EmailVerification.find({
+    ...baseQuery,
+    token: { $regex: new RegExp(`^${escapeRegex(token)}`) },
+  });
+
+  if (candidates.length === 1) return candidates[0];
+  return null;
+}
+
 async function assertRegistrationAvailable({ email, username }) {
   const emailNorm = email.toLowerCase();
   const userNorm  = username.toLowerCase();
@@ -15,7 +43,6 @@ async function assertRegistrationAvailable({ email, username }) {
     return { ok: false, status: 400, message: 'Username ini tidak dapat digunakan (nama sistem/admin)' };
   }
 
-  // Cek hanya di Company (akun final), BUKAN di EmailVerification
   const existing = await Company.findOne({ $or: [{ email: emailNorm }, { username: userNorm }] });
   if (existing) {
     const message = existing.email === emailNorm
@@ -27,17 +54,37 @@ async function assertRegistrationAvailable({ email, username }) {
 }
 
 async function consumeVerification(verificationToken, email) {
-  const record = await EmailVerification.findOne({
-    token: verificationToken,
-    email: email.toLowerCase(),
-    verified: true,
-    expiresAt: { $gt: new Date() },
-  });
-  if (!record) {
+  const record = await findVerificationRecord(verificationToken, email);
+  if (!record || !record.verified) {
     return { ok: false, message: 'Verifikasi email belum selesai atau sudah kedaluwarsa' };
   }
+
+  const snapshot = record.toObject();
   await EmailVerification.deleteOne({ _id: record._id });
-  return { ok: true, record };
+  return { ok: true, record: snapshot };
+}
+
+function resolvePosition(position, customPosition) {
+  if (!position) return customPosition || undefined;
+  if (String(position).toLowerCase().includes('other') || position === 'Other (specify)') {
+    return customPosition || position;
+  }
+  return position;
+}
+
+function registrationPreviewFromPayload(payload) {
+  if (!payload) return null;
+  return {
+    name: payload.name,
+    email: payload.email,
+    username: payload.username,
+    role: payload.role,
+    phone: payload.phone,
+    location: payload.location,
+    institutionId: payload.institutionId,
+    position: payload.position,
+    customPosition: payload.customPosition,
+  };
 }
 
 // GET /api/auth/check-username?username=
@@ -58,7 +105,10 @@ const checkUsername = async (req, res) => {
 // POST /api/auth/send-verification
 const sendVerification = async (req, res) => {
   try {
-    const { name, email, username, password, role, phone, location } = req.body;
+    const {
+      name, email, username, password, role, phone, location,
+      institutionId, position, customPosition,
+    } = req.body;
     if (!name || !email || !username || !password || !role) {
       return res.status(400).json({ success: false, message: 'Field wajib: name, email, username, password, role' });
     }
@@ -78,9 +128,12 @@ const sendVerification = async (req, res) => {
       email: email.toLowerCase(),
       token,
       role,
-      payload: { name, email, username, password, role, phone, location },
+      payload: {
+        name, email, username, password, role, phone, location,
+        institutionId, position, customPosition,
+      },
       verified: false,
-      expiresAt: new Date(Date.now() + VERIFICATION_HOURS * 60 * 60 * 1000),
+      expiresAt,
     });
 
     const mail = await sendVerificationEmail({ to: email, name, token, role });
@@ -103,10 +156,7 @@ const verifyEmail = async (req, res) => {
     const { token, email } = req.body;
     if (!token) return res.status(400).json({ success: false, message: 'token wajib' });
 
-    const query = { token, expiresAt: { $gt: new Date() } };
-    if (email) query.email = email.toLowerCase();
-
-    const record = await EmailVerification.findOne(query);
+    const record = await findVerificationRecord(token, email);
     if (!record) {
       return res.status(400).json({ success: false, message: 'Token tidak valid atau kedaluwarsa' });
     }
@@ -116,10 +166,11 @@ const verifyEmail = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Email berhasil diverifikasi',
+      message: 'Email berhasil diverifikasi. Anda dapat melanjutkan registrasi dan login setelah akun dibuat.',
       verificationToken: record.token,
       email: record.email,
       role: record.role,
+      registrationPreview: registrationPreviewFromPayload(record.payload),
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -130,13 +181,13 @@ const verifyEmail = async (req, res) => {
 const registerCompany = async (req, res) => {
   try {
     const {
-      name, email, username, password, companyType, position, officeAddress, siteAddress,
-      emissionObject, institutionId, verificationToken,
-      calcMethod, equityPct, ghgInventoryPath, carbonRemovalPath,
+      name, email, username, password, companyType, position, customPosition,
+      officeAddress, siteAddress, emissionObject, institutionId, verificationToken,
+      calcMethod, equityPct, ghgInventoryPath, carbonRemovalPath, location,
     } = req.body;
 
-    if (!name || !email || !username || !password || !verificationToken) {
-      return res.status(400).json({ success: false, message: 'Field wajib: name, email, username, password, verificationToken' });
+    if (!name || !email || !username || !verificationToken) {
+      return res.status(400).json({ success: false, message: 'Field wajib: name, email, username, verificationToken' });
     }
 
     const avail = await assertRegistrationAvailable({ email, username });
@@ -145,27 +196,56 @@ const registerCompany = async (req, res) => {
     const verified = await consumeVerification(verificationToken, email);
     if (!verified.ok) return res.status(400).json({ success: false, message: verified.message });
 
-    const hashed = await bcrypt.hash(password, 12);
-    const companyId = generateCompanyId(institutionId);
+    const plainPassword = password || verified.record.payload?.password;
+    if (!plainPassword) {
+      return res.status(400).json({ success: false, message: 'Password wajib diisi' });
+    }
+
+    const hashed = await bcrypt.hash(plainPassword, 12);
+    const resolvedInstitutionId = institutionId || verified.record.payload?.institutionId;
+    const companyId = generateCompanyId(resolvedInstitutionId);
     const walletId = generateWalletId();
+    const resolvedPosition = resolvePosition(position || verified.record.payload?.position, customPosition || verified.record.payload?.customPosition);
 
     const company = await Company.create({
-      companyId, name, email, username, password: hashed,
-      companyType, position, officeAddress, siteAddress,
-      emissionObject, institutionId, walletId, walletGenerated: true,
-      role: 'company', calcMethod, equityPct,
-      ghgInventoryPath, carbonRemovalPath,
+      companyId,
+      name,
+      email: email.toLowerCase(),
+      username: username.toLowerCase(),
+      password: hashed,
+      contactName: name,
+      companyType,
+      position: resolvedPosition,
+      officeAddress,
+      siteAddress,
+      location: location || officeAddress,
+      emissionObject,
+      institutionId: resolvedInstitutionId,
+      walletId,
+      walletGenerated: true,
+      role: 'company',
+      emailVerified: true,
+      calcMethod,
+      equityPct,
+      ghgInventoryPath,
+      carbonRemovalPath,
     });
 
     const sessionToken = generateToken('tok');
     await Session.create({ token: sessionToken, userId: company._id.toString(), role: 'company' });
 
     res.status(201).json({
-      success: true, token: sessionToken,
+      success: true,
+      token: sessionToken,
       user: {
-        id: company._id, name: company.name, email: company.email,
-        role: company.role, walletId: company.walletId, companyId: company.companyId,
+        id: company._id,
+        name: company.name,
+        email: company.email,
+        role: company.role,
+        walletId: company.walletId,
+        companyId: company.companyId,
         walletGenerated: true,
+        emailVerified: true,
       },
     });
   } catch (err) {
@@ -186,6 +266,18 @@ const login = async (req, res) => {
     const company = await Company.findOne(query);
     if (!company) return res.status(404).json({ success: false, message: 'Akun tidak ditemukan' });
 
+    if (!company.emailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Email belum diverifikasi. Selesaikan verifikasi email sebelum login.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
+
+    if (company.isActive === false) {
+      return res.status(403).json({ success: false, message: 'Akun dinonaktifkan. Hubungi administrator.' });
+    }
+
     if (role && company.role !== role) {
       return res.status(403).json({
         success: false,
@@ -202,13 +294,19 @@ const login = async (req, res) => {
     await Session.create({ token: sessionToken, userId: company._id.toString(), role: company.role });
 
     res.json({
-      success: true, token: sessionToken,
+      success: true,
+      token: sessionToken,
       user: {
-        id: company._id, name: company.name, email: company.email,
+        id: company._id,
+        name: company.name,
+        email: company.email,
         username: company.username,
-        role: company.role, walletId: company.walletId,
-        walletGenerated: !!company.walletId, esgScore: company.esgScore,
+        role: company.role,
+        walletId: company.walletId,
+        walletGenerated: !!company.walletId,
+        esgScore: company.esgScore,
         companyId: company.companyId,
+        emailVerified: company.emailVerified,
       },
     });
   } catch (err) {
@@ -230,8 +328,8 @@ const logout = async (req, res) => {
 const registerLandlord = async (req, res) => {
   try {
     const { name, email, username, password, phone, location, verificationToken } = req.body;
-    if (!name || !email || !username || !password || !verificationToken) {
-      return res.status(400).json({ success: false, message: 'Field wajib: name, email, username, password, verificationToken' });
+    if (!name || !email || !username || !verificationToken) {
+      return res.status(400).json({ success: false, message: 'Field wajib: name, email, username, verificationToken' });
     }
 
     const avail = await assertRegistrationAvailable({ email, username });
@@ -240,22 +338,43 @@ const registerLandlord = async (req, res) => {
     const verified = await consumeVerification(verificationToken, email);
     if (!verified.ok) return res.status(400).json({ success: false, message: verified.message });
 
-    const hashed = await bcrypt.hash(password, 12);
+    const plainPassword = password || verified.record.payload?.password;
+    if (!plainPassword) {
+      return res.status(400).json({ success: false, message: 'Password wajib diisi' });
+    }
+
+    const hashed = await bcrypt.hash(plainPassword, 12);
     const walletId = generateWalletId();
 
     const landlord = await Company.create({
-      companyId: generateCompanyId(), name, email, username,
-      password: hashed, phone, location, walletId, walletGenerated: true, role: 'landlord',
+      companyId: generateCompanyId(),
+      name,
+      email: email.toLowerCase(),
+      username: username.toLowerCase(),
+      password: hashed,
+      contactName: name,
+      phone: phone || verified.record.payload?.phone,
+      location: location || verified.record.payload?.location,
+      walletId,
+      walletGenerated: true,
+      role: 'landlord',
+      emailVerified: true,
     });
 
     const sessionToken = generateToken('tok');
     await Session.create({ token: sessionToken, userId: landlord._id.toString(), role: 'landlord' });
 
     res.status(201).json({
-      success: true, token: sessionToken,
+      success: true,
+      token: sessionToken,
       user: {
-        id: landlord._id, name: landlord.name, email: landlord.email,
-        role: 'landlord', walletId: landlord.walletId, walletGenerated: true,
+        id: landlord._id,
+        name: landlord.name,
+        email: landlord.email,
+        role: 'landlord',
+        walletId: landlord.walletId,
+        walletGenerated: true,
+        emailVerified: true,
       },
     });
   } catch (err) {
@@ -278,7 +397,8 @@ const adminLogin = async (req, res) => {
     await Session.create({ token: sessionToken, userId: 'admin', role: 'admin' });
 
     res.json({
-      success: true, token: sessionToken,
+      success: true,
+      token: sessionToken,
       user: { id: 'admin', name: 'Administrator', role: 'admin', username: adminUser },
     });
   } catch (err) {
@@ -297,9 +417,23 @@ const getMe = async (req, res) => {
     res.json({
       success: true,
       user: {
-        id: company._id, name: company.name, email: company.email, role: company.role,
-        walletId: company.walletId, walletGenerated: !!company.walletId,
-        esgScore: company.esgScore, companyId: company.companyId,
+        id: company._id,
+        name: company.name,
+        email: company.email,
+        username: company.username,
+        role: company.role,
+        walletId: company.walletId,
+        walletGenerated: !!company.walletId,
+        esgScore: company.esgScore,
+        companyId: company.companyId,
+        emailVerified: company.emailVerified,
+        companyType: company.companyType,
+        position: company.position,
+        officeAddress: company.officeAddress,
+        siteAddress: company.siteAddress,
+        emissionObject: company.emissionObject,
+        calcMethod: company.calcMethod,
+        equityPct: company.equityPct,
       },
     });
   } catch (err) {

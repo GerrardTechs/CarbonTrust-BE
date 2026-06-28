@@ -35,17 +35,10 @@ const generalLimiter = rateLimit({
   message: { success: false, message: 'Rate limit tercapai. Tunggu sebentar.' },
 });
 
-const iotPushLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 60, // ~1/second for IoT devices
-  message: { success: false, message: 'IoT push rate limit. Tunggu sebentar.' },
-});
-
 module.exports = {
   authLimiter,
   usernameCheckLimiter,
   uploadLimiter,
   emissionLimiter,
   generalLimiter,
-  iotPushLimiter,
 };

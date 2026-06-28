@@ -37,7 +37,6 @@ carbontrust/
 │   └── utils/
 │       ├── tokens.js          # Token/ID generators
 │       ├── websocket.js       # WS broadcast
-│       ├── iotSimulator.js    # IoT data generator
 │       └── emissionCalc.js    # Emission factors + calc
 ├── uploads/                   # Uploaded files
 ├── .env.example
@@ -55,7 +54,6 @@ Connect ke `ws://localhost:3000`
 - `parcel_updated` - Status parcel berubah
 - `new_bid` - Bid baru masuk
 - `bid_accepted` - Bid diterima
-- `iot_live` - Data IoT realtime dari device
 
 ## Rate Limits
 | Endpoint | Limit |
@@ -64,6 +62,5 @@ Connect ke `ws://localhost:3000`
 | Check username | 60 req / menit |
 | Upload endpoints | 20 req / jam |
 | Emission calc | 30 req / menit |
-| IoT push | 60 req / menit |
 | General | 100 req / menit |
 "# CarbonTrust-BE" 

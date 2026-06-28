@@ -5,7 +5,7 @@ const { authLimiter, usernameCheckLimiter } = require('../middleware/rateLimit')
 
 router.get('/check-username', usernameCheckLimiter, ctrl.checkUsername);
 router.post('/send-verification', authLimiter, ctrl.sendVerification);
-router.post('/verify-email', authLimiter, ctrl.verifyEmail);
+router.get('/verify-email-link', ctrl.verifyEmailLink);
 router.post('/register-company', authLimiter, ctrl.registerCompany);
 router.post('/login', authLimiter, ctrl.login);
 router.post('/logout', authenticate, ctrl.logout);

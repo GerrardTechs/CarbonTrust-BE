@@ -1,31 +1,13 @@
-const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first'); 
+const crypto = require('crypto');
+const { Resend } = require('resend');
 
-const crypto     = require('crypto');
-const nodemailer = require('nodemailer');
-
-function getTransporter() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
-  
-  const port = Number(process.env.SMTP_PORT || 587);
-  const isSecure = process.env.SMTP_SECURE === 'true';
-
-  console.log(`[SMTP Debug] Attempting connection to ${process.env.SMTP_HOST}:${port} (Secure: ${isSecure})`);
-
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: port,
-    secure: isSecure,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-    connectionTimeout: 10000, 
-    socketTimeout:     10000,
-    greetingTimeout:   10000,
-    logger: true, // Hapus komentar ini sementara untuk melihat log komunikasi Nodemailer
-    debug: true,  // Hapus komentar ini sementara untuk melihat traffic secara detail
-  });
+function getResendClient() {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('[Resend] ⚠️  RESEND_API_KEY not set in .env');
+    return null;
+  }
+  console.log('[Resend] 🔌 Connecting to Resend API...');
+  return new Resend(process.env.RESEND_API_KEY);
 }
 
 function generateVerificationToken() {
@@ -33,8 +15,8 @@ function generateVerificationToken() {
 }
 
 async function sendVerificationEmail({ to, name, token, role }) {
-  const baseUrl  = process.env.FRONTEND_URL || 'http://localhost:5173';
-  const verifyUrl = `${baseUrl}/?verifyToken=${token}&email=${encodeURIComponent(to)}`;
+  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3000';
+  const verifyUrl = `${backendUrl}/api/auth/verify-email-link?token=${token}&email=${encodeURIComponent(to)}`;
   const roleLabel = role === 'landlord' ? 'Landlord' : 'Company';
   const shortCode = token.slice(0, 8).toUpperCase();
 
@@ -42,60 +24,69 @@ async function sendVerificationEmail({ to, name, token, role }) {
     <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
       <div style="background:linear-gradient(135deg,#14532d,#0f766e);border-radius:16px;padding:32px 24px;text-align:center;margin-bottom:24px;">
         <h1 style="color:#fff;font-size:22px;font-weight:900;margin:0 0 6px;">CarbonTrust</h1>
-        <p style="color:rgba(255,255,255,.75);font-size:13px;margin:0;">Platform Manajemen Kredit Karbon</p>
+        <p style="color:rgba(255,255,255,.75);font-size:13px;margin:0;">Carbon Credit Management Platform</p>
       </div>
-      <h2 style="font-size:18px;font-weight:800;color:#1e293b;margin:0 0 8px;">Verifikasi Email Anda</h2>
+      <h2 style="font-size:18px;font-weight:800;color:#1e293b;margin:0 0 8px;">Verify Your Email</h2>
       <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 24px;">
-        Halo <strong>${name || 'Pengguna'}</strong>, terima kasih telah mendaftar sebagai <strong>${roleLabel}</strong> di CarbonTrust.
-        Klik tombol di bawah untuk memverifikasi email Anda.
+        Hello <strong>${name || 'User'}</strong>, thank you for registering as a <strong>${roleLabel}</strong> on CarbonTrust.
+        Click the button below to verify your email address.
       </p>
       <a href="${verifyUrl}" style="display:block;background:linear-gradient(135deg,#166534,#0f766e);color:#fff;text-align:center;padding:14px 24px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px;margin-bottom:20px;">
-        ✅ Verifikasi Email Saya →
+        ✅ Verify My Email →
       </a>
       <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px 16px;margin-bottom:20px;">
-        <p style="font-size:12px;color:#166534;margin:0 0 4px;font-weight:700;">Atau masukkan kode ini di aplikasi:</p>
+        <p style="font-size:12px;color:#166534;margin:0 0 4px;font-weight:700;">Or enter this code in the app:</p>
         <p style="font-family:monospace;font-size:16px;font-weight:900;color:#14532d;margin:0;letter-spacing:.1em;">${shortCode}</p>
       </div>
       <p style="font-size:12px;color:#94a3b8;text-align:center;margin:0;">
-        Tautan & kode berlaku 24 jam. Abaikan email ini jika Anda tidak mendaftar.
+        This link & code are valid for 24 hours. Ignore this email if you did not sign up.
       </p>
     </div>
   `;
 
   const text = [
-    `Halo ${name || 'Pengguna'},`,
+    `Hello ${name || 'User'},`,
     '',
-    `Terima kasih telah mendaftar di CarbonTrust sebagai ${roleLabel}.`,
+    `Thank you for registering on CarbonTrust as a ${roleLabel}.`,
     '',
-    'Klik tautan berikut untuk memverifikasi email Anda:',
+    'Click the link below to verify your email address:',
     verifyUrl,
     '',
-    `Atau masukkan kode verifikasi ini di aplikasi: ${shortCode}`,
+    `Or enter this verification code in the app: ${shortCode}`,
     '',
-    'Tautan berlaku 24 jam.',
+    'This link is valid for 24 hours.',
     '',
     '— CarbonTrust Platform',
   ].join('\n');
 
-  const transporter = getTransporter();
+  const resend = getResendClient();
+  const fromName  = process.env.EMAIL_FROM_NAME || 'CarbonTrust';
+  const fromEmail = process.env.EMAIL_FROM;
 
-  if (transporter) {
+  if (resend && fromEmail) {
+    console.log(`[Resend] 📤 Sending verification email to ${to} from "${fromName} <${fromEmail}>"...`);
+
     try {
-      await transporter.sendMail({
-        from:    `"CarbonTrust" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+      const { data, error } = await resend.emails.send({
+        from: `${fromName} <${fromEmail}>`,
         to,
-        subject: 'Verifikasi Email — CarbonTrust',
-        text,
+        subject: 'Verify Your Email — CarbonTrust',
         html,
+        text,
       });
-      console.log(`[email] ✅ Verification email sent to ${to}`);
-      return { sent: true, verifyUrl };
+
+      if (error) {
+        console.error('[Resend] ❌ Failed to send email:', error);
+      } else {
+        console.log(`[Resend] ✅ Email sent successfully to ${to} (id: ${data?.id})`);
+        return { sent: true, verifyUrl };
+      }
     } catch (err) {
-      console.error('[email] ❌ SMTP error:', err.message);
-      // Tetap fallback ke log agar token bisa dipakai dev
+      console.error('[Resend] ❌ Exception while sending email:', err.message);
+      // fallback to dev log below
     }
   } else {
-    console.warn('[email] ⚠️  SMTP not configured — set SMTP_HOST & SMTP_USER in env');
+    console.warn('[Resend] ⚠️  Resend not configured — set RESEND_API_KEY & EMAIL_FROM in .env');
   }
 
   // Dev fallback

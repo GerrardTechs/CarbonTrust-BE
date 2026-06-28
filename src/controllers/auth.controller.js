@@ -151,29 +151,36 @@ const sendVerification = async (req, res) => {
 };
 
 // POST /api/auth/verify-email
-const verifyEmail = async (req, res) => {
+const verifyEmailLink = async (req, res) => {
   try {
-    const { token, email } = req.body;
-    if (!token) return res.status(400).json({ success: false, message: 'token wajib' });
+    const { token, email } = req.query;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+    if (!token) {
+      return res.redirect(`${frontendUrl}/?verifyStatus=error&reason=missing_token`);
+    }
 
     const record = await findVerificationRecord(token, email);
     if (!record) {
-      return res.status(400).json({ success: false, message: 'Token tidak valid atau kedaluwarsa' });
+      return res.redirect(`${frontendUrl}/?verifyStatus=error&reason=invalid_or_expired`);
     }
 
     record.verified = true;
     await record.save();
 
-    res.json({
-      success: true,
-      message: 'Email berhasil diverifikasi. Anda dapat melanjutkan registrasi dan login setelah akun dibuat.',
-      verificationToken: record.token,
-      email: record.email,
-      role: record.role,
-      registrationPreview: registrationPreviewFromPayload(record.payload),
-    });
+    // Redirect ke frontend bawa verificationToken + email + role,
+    // supaya frontend bisa langsung lanjut ke form registrasi
+    const redirectUrl = new URL(frontendUrl);
+    redirectUrl.searchParams.set('verifyStatus', 'success');
+    redirectUrl.searchParams.set('verificationToken', record.token);
+    redirectUrl.searchParams.set('email', record.email);
+    redirectUrl.searchParams.set('role', record.role);
+
+    return res.redirect(redirectUrl.toString());
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error(err);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    return res.redirect(`${frontendUrl}/?verifyStatus=error&reason=server_error`);
   }
 };
 
@@ -443,5 +450,5 @@ const getMe = async (req, res) => {
 
 module.exports = {
   registerCompany, login, logout, registerLandlord, adminLogin, getMe,
-  sendVerification, verifyEmail, checkUsername,
+  sendVerification, verifyEmailLink, checkUsername,
 };

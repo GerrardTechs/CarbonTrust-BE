@@ -1,6 +1,9 @@
 const Company = require('../models/Company');
 const Parcel = require('../models/Parcel');
+const EmissionRecord = require('../models/EmissionRecord');
 const { generateWalletId } = require('../utils/tokens');
+const { extractTextFromPdf } = require('../utils/pdfText');
+const { extractEmissionFromText, compareEmissions } = require('../utils/aiEmissionVerify');
 
 // GET /api/company/:id
 const getCompany = async (req, res) => {
@@ -28,11 +31,9 @@ const updateCompany = async (req, res) => {
   try {
     const { name, entity, bizType, location, siteAddress, emissionObject, stockData } = req.body;
 
-    // Protect walletId if already generated
     const company = await Company.findById(req.params.id);
     if (!company) return res.status(404).json({ success: false, message: 'Perusahaan tidak ditemukan' });
 
-    // Only owner or admin can update
     if (req.userRole !== 'admin' && req.userId !== req.params.id) {
       return res.status(403).json({ success: false, message: 'Akses ditolak' });
     }
@@ -75,16 +76,56 @@ const updateStock = async (req, res) => {
 const uploadIso = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: 'File ISO wajib diupload' });
+
     const filePath = req.file.path;
+    const mimeType = req.file.mimetype;
+
+    // Default: belum terverifikasi, menunggu review
+    let isoCertVerified = false;
+    let aiVerification = null;
+
+    // Hanya jalankan AI extraction kalau filenya PDF
+    if (mimeType === 'application/pdf') {
+      try {
+        const text = await extractTextFromPdf(filePath);
+        const aiResult = await extractEmissionFromText(text);
+
+        // Ambil EmissionRecord terbaru milik company ini untuk dibandingkan
+        const latestRecord = await EmissionRecord
+          .findOne({ companyId: req.params.id })
+          .sort({ createdAt: -1 });
+
+        const comparison = compareEmissions(aiResult, latestRecord?.total, 5);
+
+        aiVerification = {
+          ai: aiResult,
+          comparison,
+          checkedAt: new Date(),
+        };
+
+        if (comparison.match) {
+          isoCertVerified = true;
+        }
+      } catch (aiErr) {
+        console.error('[upload-iso] ⚠️  AI verification gagal, fallback ke manual review:', aiErr.message);
+        aiVerification = { error: aiErr.message };
+      }
+    }
+
     await Company.findByIdAndUpdate(req.params.id, {
       isoCertPath: filePath,
-      isoCertVerified: false,
+      isoCertVerified,
+      isoCertAiVerification: aiVerification, // field baru, untuk transparansi/audit trail
     });
+
     res.json({
       success: true,
       filePath,
-      isoCertVerified: false,
-      message: 'Menunggu verifikasi admin',
+      isoCertVerified,
+      aiVerification,
+      message: isoCertVerified
+        ? 'Sertifikat terverifikasi otomatis — total emisi pada dokumen cocok dengan data sistem'
+        : 'Menunggu verifikasi admin (AI belum dapat memastikan kecocokan data)',
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

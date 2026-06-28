@@ -20,6 +20,7 @@ const companySchema = new mongoose.Schema({
   esgScore: { type: Number, default: 0 },
   esgStatus: { type: String, default: 'unrated' },
   isoCertVerified: { type: Boolean, default: false },
+  isoCertAiVerification: { type: mongoose.Schema.Types.Mixed, default: null },
   isoCertPath: { type: String },
   ownershipCertPath: { type: String },
   equityPct: { type: Number },
